@@ -1,0 +1,5 @@
+fn main() {
+    x = 42
+    seppo x
+    return x
+}

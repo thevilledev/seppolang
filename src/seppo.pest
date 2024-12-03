@@ -1,0 +1,26 @@
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT = _{ "//" ~ (!"\n" ~ ANY)* ~ "\n" }
+
+program = { SOI ~ function* ~ EOI }
+
+function = { "fn" ~ identifier ~ "(" ~ param_list? ~ ")" ~ block }
+param_list = { identifier ~ ("," ~ identifier)* }
+block = { "{" ~ statement* ~ "}" }
+
+statement = { print_stmt | assignment | return_stmt | expression }
+return_stmt = { "return" ~ expression }
+
+print_stmt = { "seppo" ~ print_item }
+print_item = { expression }
+
+assignment = { identifier ~ "=" ~ expression }
+expression = { operation | number | identifier | function_call }
+operation = { (number | identifier) ~ operator ~ (number | identifier) }
+operator = { "+" | "-" | "*" | "/" }
+
+function_call = { identifier ~ "(" ~ arg_list? ~ ")" }
+arg_list = { expression ~ ("," ~ expression)* }
+
+number = @{ ASCII_DIGIT+ }
+identifier = @{ !("return" | "fn") ~ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+variable = @{ identifier } 
