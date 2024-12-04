@@ -11,4 +11,12 @@ anyhow = "1.0"
 thiserror = "1.0"
 
 [build-dependencies]
-pest_generator = "2.7" 
+pest_generator = "2.7"
+
+[lib]
+name = "seppolang"
+path = "src/lib.rs"
+
+[[bin]]
+name = "seppoc"
+path = "src/main.rs" 

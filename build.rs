@@ -6,8 +6,7 @@ fn main() {
         println!("cargo:rustc-link-search=native=/opt/homebrew/opt/zstd/lib");
         println!("cargo:rustc-link-search=native=/opt/homebrew/opt/llvm@18/lib");
         println!("cargo:rustc-link-search=native=/opt/homebrew/lib");
-    }
-    else {
+    } else {
         panic!("Unsupported OS");
     }
-} 
+}
