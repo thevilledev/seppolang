@@ -1,9 +1,31 @@
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 COMMENT = _{ "//" ~ (!"\n" ~ ANY)* ~ "\n" }
 
-program = { SOI ~ function* ~ EOI }
+program = { 
+    SOI ~ 
+    (top_level ~ WHITESPACE*)* ~
+    EOI 
+}
 
-function = { "fn" ~ identifier ~ "(" ~ param_list? ~ ")" ~ block }
+top_level = _{ extern_block | function }
+
+ceppo_kw = _{ "ceppo" }
+
+extern_block = { 
+    ceppo_kw ~ 
+    "{" ~ 
+    c_content ~
+    "}" 
+}
+
+c_content = @{ (!"}") ~ ANY* }
+
+function = { 
+    "fn" ~ 
+    identifier ~ 
+    "(" ~ param_list? ~ ")" ~ 
+    block 
+}
 param_list = { identifier ~ ("," ~ identifier)* }
 block = { "{" ~ statement* ~ "}" }
 
@@ -14,7 +36,7 @@ print_stmt = { "seppo" ~ print_item }
 print_item = { expression }
 
 assignment = { identifier ~ "=" ~ expression }
-expression = { operation | number | identifier | function_call }
+expression = { operation | function_call | number | identifier }
 operation = { (number | identifier) ~ operator ~ (number | identifier) }
 operator = { "+" | "-" | "*" | "/" }
 
@@ -22,5 +44,5 @@ function_call = { identifier ~ "(" ~ arg_list? ~ ")" }
 arg_list = { expression ~ ("," ~ expression)* }
 
 number = @{ ASCII_DIGIT+ }
-identifier = @{ !("return" | "fn") ~ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+identifier = @{ !("return" | "fn" | "ceppo") ~ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 variable = @{ identifier } 

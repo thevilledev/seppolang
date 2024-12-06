@@ -58,11 +58,18 @@ fn compile_and_run(input: &str) -> Result<i64> {
     }
 
     // Link with more verbose error handling
-    let output = std::process::Command::new("cc")
+    let mut link_command = std::process::Command::new("cc");
+    link_command
         .arg("-o")
         .arg(&exe_file)
-        .arg(&obj_file)
-        .output()?;
+        .arg(&obj_file);
+    
+    // Add any C object files
+    for c_obj in codegen.c_object_files() {
+        link_command.arg(c_obj);
+    }
+    
+    let output = link_command.output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -119,7 +126,7 @@ fn test_main_implicit_return() -> Result<()> {
             x = 42
         }
     "#;
-    assert_eq!(compile_and_run(input)?, 0); // Should return 0 by default
+    assert_eq!(compile_and_run(input)?, 0);
     Ok(())
 }
 
@@ -196,4 +203,24 @@ fn test_undefined_variable() {
         }
     "#;
     compile_and_run(input).unwrap();
+}
+
+#[test]
+fn test_inline_c_function() -> Result<()> {
+    let input = r#"
+        ceppo {
+            long my_rand() {
+                return 42;
+            }
+        }
+
+        fn main() {
+            x = my_rand()
+            seppo x
+            return x
+        }
+    "#;
+
+    assert_eq!(compile_and_run(input)?, 42);
+    Ok(())
 }

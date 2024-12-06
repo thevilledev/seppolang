@@ -7,6 +7,10 @@ use inkwell::targets::{CodeModel, FileType, RelocMode, Target, TargetMachine};
 use inkwell::values::{FunctionValue, IntValue, PointerValue};
 use std::collections::HashMap;
 use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
+use std::env;
+use std::process;
+use std::fs;
 
 pub struct CodeGen<'ctx> {
     context: &'ctx Context,
@@ -15,6 +19,7 @@ pub struct CodeGen<'ctx> {
     variables: HashMap<String, PointerValue<'ctx>>,
     functions: HashMap<String, FunctionValue<'ctx>>,
     current_function: Option<FunctionValue<'ctx>>,
+    c_object_files: Vec<std::path::PathBuf>,
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -34,6 +39,7 @@ impl<'ctx> CodeGen<'ctx> {
             variables: HashMap::new(),
             functions: HashMap::new(),
             current_function: None,
+            c_object_files: Vec::new(),
         }
     }
 
@@ -209,6 +215,53 @@ impl<'ctx> CodeGen<'ctx> {
                 }
                 Ok(last_value)
             }
+            SeppoExpr::InlineC(code) => {
+                // Create a unique temporary directory
+                let timestamp = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos();
+                let pid = process::id();
+                let temp_dir = env::temp_dir()
+                    .join(format!("seppolang_extern_{}_{}", pid, timestamp));
+                fs::create_dir_all(&temp_dir)?;
+
+                let c_file = temp_dir.join("inline.c");
+                let o_file = temp_dir.join("inline.o");
+                
+                // Write the C code to a file with proper headers
+                let c_code = format!(
+                    "#include <stdint.h>\n\
+                     #include <stdio.h>\n\
+                     #include <stdlib.h>\n\
+                     __attribute__((visibility(\"default\")))\n\
+                     {}\n",
+                    code
+                );
+                std::fs::write(&c_file, c_code)?;
+                
+                // Compile the C file
+                let output = std::process::Command::new("cc")
+                    .arg("-c")
+                    .arg("-fPIC")
+                    .arg("-o")
+                    .arg(&o_file)
+                    .arg(&c_file)
+                    .output()?;
+                    
+                if !output.status.success() {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    return Err(anyhow!("Failed to compile C code: {}", stderr));
+                }
+                
+                // Clean up C file
+                fs::remove_file(c_file)?;
+                
+                // Store the object file path for later linking
+                self.c_object_files.push(o_file);
+                
+                Ok(self.context.i64_type().const_int(0, false))
+            }
         }
     }
 
@@ -242,5 +295,9 @@ impl<'ctx> CodeGen<'ctx> {
         target_machine
             .write_to_file(&self.module, FileType::Object, output)
             .map_err(|e| anyhow!("Failed to write object file: {}", e))
+    }
+
+    pub fn c_object_files(&self) -> &[std::path::PathBuf] {
+        &self.c_object_files
     }
 }

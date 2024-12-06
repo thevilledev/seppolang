@@ -8,26 +8,69 @@ use pest_derive::Parser;
 pub struct SeppoParser;
 
 pub fn parse_seppo(input: &str) -> Result<SeppoExpr> {
-    let pairs = SeppoParser::parse(Rule::program, input)?;
+    println!("Input:\n{}", input);
+    println!("Attempting to parse with Rule::program...");
+    
+    // Try parsing with program rule and print each step
+    println!("\nTrying program rule with detailed debugging:");
+    let program_result = SeppoParser::parse(Rule::program, input);
+    match &program_result {
+        Ok(pairs) => {
+            for pair in pairs.clone() {
+                println!("\nTop level pair:");
+                println!("Rule: {:?}", pair.as_rule());
+                println!("Text: {}", pair.as_str());
+                println!("Span: {:?}", pair.as_span());
+                
+                for inner in pair.into_inner() {
+                    println!("\n  Inner pair:");
+                    println!("  Rule: {:?}", inner.as_rule());
+                    println!("  Text: {}", inner.as_str());
+                    println!("  Span: {:?}", inner.as_span());
+                }
+            }
+        }
+        Err(e) => {
+            println!("\nProgram parse error:");
+            println!("Error: {:?}", e);
+            println!("Location: {:?}", e.location);
+            println!("Line/Col: {:?}", e.line_col);
+        }
+    }
+    
+    // Original parse
+    let pairs = program_result?;
+    
     let mut functions = Vec::new();
     let mut has_main = false;
 
     for pair in pairs {
         match pair.as_rule() {
             Rule::program => {
-                for func in pair.into_inner() {
-                    if func.as_rule() == Rule::function {
-                        let func_expr = parse_function(func)?;
-                        if let SeppoExpr::Function(name, ..) = &func_expr {
-                            if name == "main" {
-                                has_main = true;
+                for item in pair.into_inner() {
+                    match item.as_rule() {
+                        Rule::function => {
+                            let func_expr = parse_function(item)?;
+                            if let SeppoExpr::Function(name, ..) = &func_expr {
+                                if name == "main" {
+                                    has_main = true;
+                                }
                             }
+                            functions.push(func_expr);
                         }
-                        functions.push(func_expr);
+                        Rule::extern_block => {
+                            let c_code = item
+                                .into_inner()
+                                .find(|p| p.as_rule() == Rule::c_content)
+                                .map(|p| p.as_str().to_string())
+                                .ok_or_else(|| anyhow!("Expected C code in ceppo block"))?;
+                            functions.push(SeppoExpr::InlineC(c_code));
+                        }
+                        _ => {}
                     }
                 }
             }
-            _ => unreachable!(),
+            _ => {}
         }
     }
 
@@ -159,5 +202,3 @@ fn parse_expression(pair: pest::iterators::Pair<Rule>) -> Result<SeppoExpr> {
         rule => Err(anyhow!("Unexpected rule in expression: {:?}", rule)),
     }
 }
-
-// Implementation of parse_expression...

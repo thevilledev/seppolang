@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum SeppoExpr {
     Number(i64),
     Variable(String),
@@ -9,4 +9,5 @@ pub enum SeppoExpr {
     Function(String, Vec<String>, Box<SeppoExpr>),
     FunctionCall(String, Vec<SeppoExpr>),
     Return(Box<SeppoExpr>),
+    InlineC(String),
 }
