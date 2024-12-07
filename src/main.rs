@@ -57,7 +57,7 @@ fn link_object_file(obj_file: &Path, output: &Path, codegen: &codegen::CodeGen) 
     // Create a basic link command
     let mut link_command = Command::new("cc");
     link_command
-        .arg("-v")  // Add verbose output for debugging
+        .arg("-v") // Add verbose output for debugging
         .arg("-o")
         .arg(output)
         .arg(obj_file);

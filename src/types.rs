@@ -11,6 +11,11 @@ pub enum SeppoExpr {
     FunctionCall(String, Vec<SeppoExpr>),
     Return(Box<SeppoExpr>),
     InlineC(String),
+    Conditional {
+        condition: Box<SeppoExpr>,
+        true_block: Box<SeppoExpr>,
+        false_block: Option<Box<SeppoExpr>>,
+    },
 }
 
 #[derive(Debug, Clone)]

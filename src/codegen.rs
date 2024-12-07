@@ -181,24 +181,94 @@ impl<'ctx> CodeGen<'ctx> {
                 let rhs = self.gen_expr(right)?;
 
                 match op.as_str() {
-                    "+" => self
-                        .builder
-                        .build_int_add(lhs, rhs, "addtmp")
-                        .map_err(|e| anyhow!(e)),
-                    "-" => self
-                        .builder
-                        .build_int_sub(lhs, rhs, "subtmp")
-                        .map_err(|e| anyhow!(e)),
-                    "*" => self
-                        .builder
-                        .build_int_mul(lhs, rhs, "multmp")
-                        .map_err(|e| anyhow!(e)),
-                    "/" => self
-                        .builder
-                        .build_int_signed_div(lhs, rhs, "divtmp")
-                        .map_err(|e| anyhow!(e)),
-                    _ => Err(anyhow!("Unknown operator: {}", op)),
+                    "+" => Ok(self.builder.build_int_add(lhs, rhs, "addtmp")?),
+                    "-" => Ok(self.builder.build_int_sub(lhs, rhs, "subtmp")?),
+                    "*" => Ok(self.builder.build_int_mul(lhs, rhs, "multmp")?),
+                    "/" => Ok(self.builder.build_int_signed_div(lhs, rhs, "divtmp")?),
+                    ">" => {
+                        let cmp = self.builder.build_int_compare(
+                            inkwell::IntPredicate::SGT,
+                            lhs,
+                            rhs,
+                            "cmptmp",
+                        )?;
+                        Ok(self.builder.build_int_z_extend(
+                            cmp,
+                            self.context.i64_type(),
+                            "bool_ext",
+                        )?)
+                    }
+                    "<" => {
+                        let cmp = self.builder.build_int_compare(
+                            inkwell::IntPredicate::SLT,
+                            lhs,
+                            rhs,
+                            "cmptmp",
+                        )?;
+                        Ok(self.builder.build_int_z_extend(
+                            cmp,
+                            self.context.i64_type(),
+                            "bool_ext",
+                        )?)
+                    }
+                    ">=" => {
+                        let cmp = self.builder.build_int_compare(
+                            inkwell::IntPredicate::SGE,
+                            lhs,
+                            rhs,
+                            "cmptmp",
+                        )?;
+                        Ok(self.builder.build_int_z_extend(
+                            cmp,
+                            self.context.i64_type(),
+                            "bool_ext",
+                        )?)
+                    }
+                    "<=" => {
+                        let cmp = self.builder.build_int_compare(
+                            inkwell::IntPredicate::SLE,
+                            lhs,
+                            rhs,
+                            "cmptmp",
+                        )?;
+                        Ok(self.builder.build_int_z_extend(
+                            cmp,
+                            self.context.i64_type(),
+                            "bool_ext",
+                        )?)
+                    }
+                    "==" => {
+                        let cmp = self.builder.build_int_compare(
+                            inkwell::IntPredicate::EQ,
+                            lhs,
+                            rhs,
+                            "cmptmp",
+                        )?;
+                        Ok(self.builder.build_int_z_extend(
+                            cmp,
+                            self.context.i64_type(),
+                            "bool_ext",
+                        )?)
+                    }
+                    "!=" => {
+                        let cmp = self.builder.build_int_compare(
+                            inkwell::IntPredicate::NE,
+                            lhs,
+                            rhs,
+                            "cmptmp",
+                        )?;
+                        Ok(self.builder.build_int_z_extend(
+                            cmp,
+                            self.context.i64_type(),
+                            "bool_ext",
+                        )?)
+                    }
+                    op => {
+                        // Convert to anyhow error directly since we can't create a BuilderError
+                        Err(anyhow!("Unknown operator: {}", op))
+                    }
                 }
+                .map_err(|e| anyhow!(e.to_string()))
             }
             SeppoExpr::Assignment(name, value) => {
                 let val = self.gen_expr(value)?;
@@ -218,11 +288,15 @@ impl<'ctx> CodeGen<'ctx> {
                 let value = self.gen_expr(expr)?;
 
                 let printf = self.module.get_function("printf").unwrap();
-                
+
                 // Choose format based on the print type
                 let format_string = match format {
-                    PrintFormat::Hex => self.builder.build_global_string_ptr("0x%lx\n", "format_string")?,
-                    PrintFormat::Decimal => self.builder.build_global_string_ptr("%lu\n", "format_string")?,
+                    PrintFormat::Hex => self
+                        .builder
+                        .build_global_string_ptr("0x%lx\n", "format_string")?,
+                    PrintFormat::Decimal => self
+                        .builder
+                        .build_global_string_ptr("%lu\n", "format_string")?,
                 };
 
                 self.builder.build_call(
@@ -288,7 +362,7 @@ impl<'ctx> CodeGen<'ctx> {
                 fs::remove_file(c_file)?;
 
                 // Store the object file path for later linking
-                let o_file_abs = fs::canonicalize(&o_file)?;  // Get absolute path
+                let o_file_abs = fs::canonicalize(&o_file)?; // Get absolute path
                 self.c_object_files.push(o_file_abs);
 
                 println!("Added C object file: {:?}", o_file);
@@ -350,6 +424,59 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(self
                     .builder
                     .build_ptr_to_int(str_ptr, self.context.i64_type(), "str_ptr")?)
+            }
+            SeppoExpr::Conditional {
+                condition,
+                true_block,
+                false_block,
+            } => {
+                let cond_value = self.gen_expr(condition)?;
+
+                // Get current function
+                let current_fn = self
+                    .current_function
+                    .ok_or_else(|| anyhow!("Conditional block outside of function"))?;
+
+                // Create basic blocks
+                let then_bb = self.context.append_basic_block(current_fn, "then");
+                let else_bb = self.context.append_basic_block(current_fn, "else");
+                let merge_bb = self.context.append_basic_block(current_fn, "merge");
+
+                // Convert condition to boolean (i1)
+                let zero = self.context.i64_type().const_int(0, false);
+                let cond_bool = self.builder.build_int_compare(
+                    inkwell::IntPredicate::NE,
+                    cond_value,
+                    zero,
+                    "cond",
+                )?;
+
+                // Create conditional branch with i1 value
+                self.builder
+                    .build_conditional_branch(cond_bool, then_bb, else_bb)?;
+
+                // Generate then block
+                self.builder.position_at_end(then_bb);
+                let then_val = self.gen_expr(true_block)?;
+                self.builder.build_unconditional_branch(merge_bb)?;
+
+                // Generate else block
+                self.builder.position_at_end(else_bb);
+                let else_val = if let Some(false_block) = false_block {
+                    self.gen_expr(false_block)?
+                } else {
+                    self.context.i64_type().const_int(0, false)
+                };
+                self.builder.build_unconditional_branch(merge_bb)?;
+
+                // Generate merge block
+                self.builder.position_at_end(merge_bb);
+                let phi = self
+                    .builder
+                    .build_phi(self.context.i64_type(), "merge_val")?;
+                phi.add_incoming(&[(&then_val, then_bb), (&else_val, else_bb)]);
+
+                Ok(phi.as_basic_value().into_int_value())
             }
         }
     }

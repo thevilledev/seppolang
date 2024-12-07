@@ -61,7 +61,7 @@ fn compile_and_run(input: &str) -> Result<i64> {
         // Link with more verbose error handling
         let mut link_command = std::process::Command::new("cc");
         link_command
-            .arg("-v")  // Add verbose output
+            .arg("-v") // Add verbose output
             .arg("-o")
             .arg(&exe_file)
             .arg(&obj_file);
@@ -376,5 +376,59 @@ fn test_ceppo_chibihash() -> Result<()> {
     "#;
 
     assert_eq!(compile_and_run(input)?, 0);
+    Ok(())
+}
+
+#[test]
+fn test_conditional_format() -> Result<()> {
+    let input = r#"
+        fn seppo() {
+            x = 42
+            seppo x > 40 {
+                x = 1
+            }
+            perkele {
+                x = 0
+            }
+            return x
+        }
+    "#;
+    assert_eq!(compile_and_run(input)?, 1);
+    Ok(())
+}
+
+#[test]
+fn test_conditional_less_than() -> Result<()> {
+    let input = r#"
+        fn seppo() {
+            x = 30
+            seppo x < 40 {
+                x = 1
+            }
+            perkele {
+                x = 0
+            }
+            return x
+        }
+    "#;
+    assert_eq!(compile_and_run(input)?, 1);
+    Ok(())
+}
+
+#[test]
+fn test_conditional_equals() -> Result<()> {
+    let input = r#"
+        fn seppo() {
+            x = 42
+            seppo x == 42 {
+                x = 1
+            }
+            perkele {
+                x = 0
+            }
+            return x
+        }
+    "#;
+    assert_eq!(compile_and_run(input)?, 1);
     Ok(())
 }

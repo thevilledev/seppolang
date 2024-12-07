@@ -38,7 +38,20 @@ function = {
 param_list = { identifier ~ ("," ~ WHITESPACE* ~ identifier)* }
 block = { "{" ~ WHITESPACE* ~ statement* ~ WHITESPACE* ~ "}" }
 
-statement = { WHITESPACE* ~ (print_stmt | assignment | return_stmt | expression) ~ WHITESPACE* }
+statement = { 
+    WHITESPACE* ~ 
+    (conditional_block | print_stmt | assignment | return_stmt | expression) ~ 
+    WHITESPACE* 
+}
+
+conditional_block = {
+    "seppo" ~ WHITESPACE* ~ condition ~ WHITESPACE* ~ block ~
+    ("perkele" ~ WHITESPACE* ~ block)?
+}
+
+condition = { expression ~ WHITESPACE* ~ comparison_op ~ WHITESPACE* ~ expression }
+comparison_op = { ">" | "<" | ">=" | "<=" | "==" | "!=" }
+
 return_stmt = { "return" ~ WHITESPACE* ~ expression }
 
 print_stmt = { print_command ~ WHITESPACE* ~ print_item }

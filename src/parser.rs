@@ -128,6 +128,7 @@ fn parse_statement(pair: pest::iterators::Pair<Rule>) -> Result<SeppoExpr> {
             let inner = pair.into_inner().next().unwrap();
             parse_statement(inner)
         }
+        Rule::conditional_block => parse_conditional_block(pair),
         Rule::print_stmt => parse_print(pair),
         Rule::assignment => parse_assignment(pair),
         Rule::expression => parse_expression(pair),
@@ -147,11 +148,42 @@ fn parse_statement(pair: pest::iterators::Pair<Rule>) -> Result<SeppoExpr> {
     }
 }
 
+fn parse_conditional_block(pair: pest::iterators::Pair<Rule>) -> Result<SeppoExpr> {
+    let mut inner = pair.into_inner();
+
+    // Parse condition
+    let condition = inner.next().ok_or_else(|| anyhow!("Expected condition"))?;
+    let condition_expr = parse_condition(condition)?;
+
+    // Parse true block
+    let true_block = inner.next().ok_or_else(|| anyhow!("Expected true block"))?;
+    let true_expr = parse_block(true_block)?;
+
+    // Parse optional false block (perkele block)
+    let false_expr = inner.next().map(parse_block).transpose()?;
+
+    Ok(SeppoExpr::Conditional {
+        condition: Box::new(condition_expr),
+        true_block: Box::new(true_expr),
+        false_block: false_expr.map(Box::new),
+    })
+}
+
+fn parse_condition(pair: pest::iterators::Pair<Rule>) -> Result<SeppoExpr> {
+    let mut inner = pair.into_inner();
+    let left = parse_expression(inner.next().unwrap())?;
+    let op = inner.next().unwrap().as_str().to_string();
+    let right = parse_expression(inner.next().unwrap())?;
+
+    Ok(SeppoExpr::Operation(op, Box::new(left), Box::new(right)))
+}
+
 fn parse_print(pair: pest::iterators::Pair<Rule>) -> Result<SeppoExpr> {
     let mut inner = pair.into_inner();
-    
+
     // Get the print command (seppo or 0xseppo)
-    let command = inner.next()
+    let command = inner
+        .next()
         .ok_or_else(|| anyhow!("Expected print command"))?;
     let format = match command.as_str() {
         "0xseppo" => PrintFormat::Hex,
@@ -159,12 +191,13 @@ fn parse_print(pair: pest::iterators::Pair<Rule>) -> Result<SeppoExpr> {
     };
 
     // Get the expression to print
-    let expr = inner.next()
+    let expr = inner
+        .next()
         .ok_or_else(|| anyhow!("Expected expression to print"))?
         .into_inner()
         .next()
         .ok_or_else(|| anyhow!("Empty print expression"))?;
-    
+
     let expr = parse_expression(expr)?;
     Ok(SeppoExpr::Print(format, Box::new(expr)))
 }
