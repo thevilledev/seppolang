@@ -229,22 +229,20 @@ impl<'ctx> CodeGen<'ctx> {
                 let c_file = temp_dir.join("inline.c");
                 let o_file = temp_dir.join("inline.o");
                 
-                // Write the C code to a file with proper headers and function declarations
+                // Write the C code to a file with proper headers
                 let c_code = format!(
                     "#include <stdint.h>\n\
                      #include <stdio.h>\n\
                      #include <stdlib.h>\n\
                      {}\n",
-                    // Trim whitespace and remove any 'ceppo' keywords that might have been included
-                    code.trim().replace("ceppo", "").trim()
+                    code.trim()
                 );
                 std::fs::write(&c_file, c_code)?;
                 
-                // Compile the C file with position independent code and optimization
+                // Compile the C file
                 let output = std::process::Command::new("cc")
                     .arg("-c")
                     .arg("-fPIC")
-                    .arg("-O2")
                     .arg("-o")
                     .arg(&o_file)
                     .arg(&c_file)
@@ -260,6 +258,21 @@ impl<'ctx> CodeGen<'ctx> {
                 
                 // Store the object file path for later linking
                 self.c_object_files.push(o_file);
+                
+                // Extract function name from the C code
+                // Looking for pattern: "long function_name("
+                let code = code.trim();
+                if let Some(start) = code.find("long ") {
+                    if let Some(end) = code[start..].find('(') {
+                        let func_name = code[start + 5..start + end].trim();
+                        
+                        // Declare the function to LLVM
+                        let i64_type = self.context.i64_type();
+                        let fn_type = i64_type.fn_type(&[], false);
+                        let function = self.module.add_function(func_name, fn_type, None);
+                        self.functions.insert(func_name.to_string(), function);
+                    }
+                }
                 
                 Ok(self.context.i64_type().const_int(0, false))
             }
