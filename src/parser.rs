@@ -169,6 +169,12 @@ fn parse_assignment(pair: pest::iterators::Pair<Rule>) -> Result<SeppoExpr> {
 fn parse_expression(pair: pest::iterators::Pair<Rule>) -> Result<SeppoExpr> {
     match pair.as_rule() {
         Rule::number => Ok(SeppoExpr::Number(pair.as_str().parse()?)),
+        Rule::string_literal => {
+            // Remove the quotes and handle escapes
+            let str_content = pair.as_str();
+            let str_without_quotes = &str_content[1..str_content.len()-1];
+            Ok(SeppoExpr::String(str_without_quotes.to_string()))
+        }
         Rule::variable => Ok(SeppoExpr::Variable(pair.as_str().to_string())),
         Rule::identifier => Ok(SeppoExpr::Variable(pair.as_str().to_string())),
         Rule::operation => {

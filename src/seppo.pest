@@ -6,7 +6,7 @@ program = { SOI ~ (WHITESPACE* ~ (extern_block | function))* ~ WHITESPACE* ~ EOI
 extern_block = { 
     WHITESPACE* ~
     "ceppo" ~ 
-    WHITESPACE* ~ 
+    WHITESPACE* ~
     "{" ~ 
     c_code ~
     "}" ~
@@ -45,7 +45,7 @@ print_stmt = { "seppo" ~ WHITESPACE* ~ print_item }
 print_item = { expression }
 
 assignment = { identifier ~ WHITESPACE* ~ "=" ~ WHITESPACE* ~ expression }
-expression = { operation | function_call | number | identifier }
+expression = { operation | function_call | number | string_literal| identifier }
 operation = { (number | identifier) ~ WHITESPACE* ~ operator ~ WHITESPACE* ~ (number | identifier) }
 operator = { "+" | "-" | "*" | "/" }
 
@@ -55,3 +55,5 @@ arg_list = { expression ~ ("," ~ WHITESPACE* ~ expression)* }
 number = @{ ASCII_DIGIT+ }
 identifier = @{ !("return" | "fn" | "ceppo") ~ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 variable = @{ identifier } 
+
+string_literal = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }

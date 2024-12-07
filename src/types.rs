@@ -1,6 +1,7 @@
 #[derive(Debug, Clone)]
 pub enum SeppoExpr {
     Number(i64),
+    String(String),
     Variable(String),
     Operation(String, Box<SeppoExpr>, Box<SeppoExpr>),
     Assignment(String, Box<SeppoExpr>),

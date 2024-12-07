@@ -154,7 +154,11 @@ impl<'ctx> CodeGen<'ctx> {
 
                     let result = self
                         .builder
-                        .build_call(function, &compiled_args, "calltmp")?;
+                        .build_call(
+                            self.module.get_function(name).unwrap_or(function),
+                            &compiled_args,
+                            "calltmp"
+                        )?;
                     Ok(result.try_as_basic_value().left().unwrap().into_int_value())
                 } else {
                     Err(anyhow!("Undefined function: {}", name))
@@ -254,6 +258,8 @@ impl<'ctx> CodeGen<'ctx> {
                     "#include <stdint.h>\n\
                      #include <stdio.h>\n\
                      #include <stdlib.h>\n\
+                     #include <stddef.h>\n\
+                     #include <limits.h>\n\
                      {}\n",
                     code.trim()
                 );
@@ -279,37 +285,65 @@ impl<'ctx> CodeGen<'ctx> {
                 // Store the object file path for later linking
                 self.c_object_files.push(o_file);
                 
-                // Extract function name and parameters from the C code
+                // Extract function declarations from the C code
                 let code = code.trim();
-                if let Some(start) = code.find("long ") {
-                    if let Some(end) = code[start..].find('(') {
-                        let func_name = code[start + 5..start + end].trim();
+                
+                // Find function declarations by looking for opening parenthesis
+                let mut pos = 0;
+                while let Some(paren_pos) = code[pos..].find('(') {
+                    let start_pos = pos + paren_pos;
+                    
+                    // Look backwards for the function name and return type
+                    let before_paren = &code[..start_pos];
+                    if let Some(name_start) = before_paren.rfind(|c: char| c.is_whitespace()) {
+                        let func_name = before_paren[name_start + 1..].trim();
                         
-                        // Count parameters by looking at the content between parentheses
-                        let params_start = code[start..].find('(').unwrap() + start + 1;
-                        let params_end = code[params_start..].find(')').unwrap() + params_start;
-                        let params = code[params_start..params_end].trim();
-                        
-                        // Count number of 'long' parameters
-                        let param_count = if params.is_empty() {
-                            0
-                        } else {
-                            params.split(',').count()
-                        };
-                        
-                        // Create function type with correct number of parameters
-                        let i64_type = self.context.i64_type();
-                        let param_types = vec![i64_type.into(); param_count];
-                        let fn_type = i64_type.fn_type(&param_types, false);
-                        
-                        // Declare the function
-                        let function = self.module.add_function(func_name, fn_type, None);
-                        self.functions.insert(func_name.to_string(), function);
+                        // Find the closing parenthesis
+                        if let Some(params_end) = code[start_pos..].find(')') {
+                            let params = code[start_pos + 1..start_pos + params_end].trim();
+                            
+                            // Count parameters by counting commas + 1 (if not empty)
+                            let param_count = if params.is_empty() {
+                                0
+                            } else {
+                                params.split(',').count()
+                            };
+                            
+                            // Create function type - always use i64 for now
+                            let i64_type = self.context.i64_type();
+                            let param_types = vec![i64_type.into(); param_count];
+                            let fn_type = i64_type.fn_type(&param_types, false);
+                            
+                            // Declare the function with external linkage
+                            let function = self.module.add_function(
+                                func_name,
+                                fn_type,
+                                Some(inkwell::module::Linkage::External)
+                            );
+                            
+                            // Store in our functions map
+                            self.functions.insert(func_name.to_string(), function);
+                        }
                     }
+                    
+                    pos = start_pos + 1;
                 }
                 
                 Ok(self.context.i64_type().const_int(0, false))
             }
+            SeppoExpr::String(s) => {
+                // Create a global string constant
+                let str_ptr = self.builder
+                    .build_global_string_ptr(s, "str_const")?
+                    .as_pointer_value();
+                
+                // Convert pointer to i64 for passing to C functions
+                Ok(self.builder.build_ptr_to_int(
+                    str_ptr,
+                    self.context.i64_type(),
+                    "str_ptr"
+                )?)
+            },
         }
     }
 
