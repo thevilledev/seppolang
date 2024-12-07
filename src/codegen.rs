@@ -379,6 +379,7 @@ impl<'ctx> CodeGen<'ctx> {
             .map_err(|e| anyhow!("Failed to write object file: {}", e))
     }
 
+    #[allow(dead_code)]
     pub fn c_object_files(&self) -> &[std::path::PathBuf] {
         &self.c_object_files
     }
