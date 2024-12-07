@@ -11,7 +11,7 @@ pub fn parse_seppo(input: &str) -> Result<SeppoExpr> {
     println!("Input:\n{}", input);
     println!("Attempting to parse with Rule::program...");
     
-    // Try parsing with program rule and print each step
+    // Debug parsing
     println!("\nTrying program rule with detailed debugging:");
     let program_result = SeppoParser::parse(Rule::program, input);
     match &program_result {
@@ -38,7 +38,6 @@ pub fn parse_seppo(input: &str) -> Result<SeppoExpr> {
         }
     }
     
-    // Original parse
     let pairs = program_result?;
     
     let mut functions = Vec::new();
@@ -61,8 +60,8 @@ pub fn parse_seppo(input: &str) -> Result<SeppoExpr> {
                         Rule::extern_block => {
                             let c_code = item
                                 .into_inner()
-                                .find(|p| p.as_rule() == Rule::c_content)
-                                .map(|p| p.as_str().to_string())
+                                .find(|p| p.as_rule() == Rule::c_code)
+                                .map(|p| p.as_str().trim().to_string())
                                 .ok_or_else(|| anyhow!("Expected C code in ceppo block"))?;
                             functions.push(SeppoExpr::InlineC(c_code));
                         }
@@ -83,6 +82,7 @@ pub fn parse_seppo(input: &str) -> Result<SeppoExpr> {
 
 fn parse_function(pair: pest::iterators::Pair<Rule>) -> Result<SeppoExpr> {
     println!("Function rule: {:?}", pair.as_rule());
+    assert_eq!(pair.as_rule(), Rule::function);
     for p in pair.clone().into_inner() {
         println!("  Child: {:?} = {:?}", p.as_rule(), p.as_str());
     }
@@ -139,7 +139,7 @@ fn parse_statement(pair: pest::iterators::Pair<Rule>) -> Result<SeppoExpr> {
                 .ok_or_else(|| anyhow!("Expected return value"))?;
             Ok(SeppoExpr::Return(Box::new(parse_expression(inner)?)))
         }
-        Rule::function => parse_function(pair),
+        Rule::function_call => parse_function(pair),
         _ => Err(anyhow!(
             "Unexpected rule in statement: {:?}",
             pair.as_rule()

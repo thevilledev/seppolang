@@ -229,21 +229,22 @@ impl<'ctx> CodeGen<'ctx> {
                 let c_file = temp_dir.join("inline.c");
                 let o_file = temp_dir.join("inline.o");
                 
-                // Write the C code to a file with proper headers
+                // Write the C code to a file with proper headers and function declarations
                 let c_code = format!(
                     "#include <stdint.h>\n\
                      #include <stdio.h>\n\
                      #include <stdlib.h>\n\
-                     __attribute__((visibility(\"default\")))\n\
                      {}\n",
-                    code
+                    // Trim whitespace and remove any 'ceppo' keywords that might have been included
+                    code.trim().replace("ceppo", "").trim()
                 );
                 std::fs::write(&c_file, c_code)?;
                 
-                // Compile the C file
+                // Compile the C file with position independent code and optimization
                 let output = std::process::Command::new("cc")
                     .arg("-c")
                     .arg("-fPIC")
+                    .arg("-O2")
                     .arg("-o")
                     .arg(&o_file)
                     .arg(&c_file)

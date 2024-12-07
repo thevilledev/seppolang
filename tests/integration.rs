@@ -224,3 +224,71 @@ fn test_inline_c_function() -> Result<()> {
     assert_eq!(compile_and_run(input)?, 42);
     Ok(())
 }
+
+#[test]
+fn test_multiple_ceppo_blocks() -> Result<()> {
+    let input = r#"
+        ceppo {
+            long add(long a, long b) {
+                return a + b;
+            }
+        }
+
+        fn main() {
+            x = 40
+            
+            ceppo {
+                long get_two() {
+                    return 2;
+                }
+            }
+
+            y = get_two()
+            z = add(x, y)
+            seppo z
+            return z
+        }
+    "#;
+
+    assert_eq!(compile_and_run(input)?, 42);
+    Ok(())
+}
+
+#[test]
+fn test_ceppo_with_whitespace() -> Result<()> {
+    let input = r#"
+        ceppo    {
+            long meaning_of_life()     {
+                return     42;
+            }
+        }
+
+        fn main() {
+            return meaning_of_life()
+        }
+    "#;
+
+    assert_eq!(compile_and_run(input)?, 42);
+    Ok(())
+}
+
+#[test]
+fn test_ceppo_complex_function() -> Result<()> {
+    let input = r#"
+        ceppo {
+            long factorial(long n) {
+                if (n <= 1) return 1;
+                return n * factorial(n - 1);
+            }
+        }
+
+        fn main() {
+            result = factorial(5)  // Should compute 5! = 120
+            seppo result
+            return result
+        }
+    "#;
+
+    assert_eq!(compile_and_run(input)?, 120);
+    Ok(())
+}
