@@ -148,15 +148,25 @@ fn parse_statement(pair: pest::iterators::Pair<Rule>) -> Result<SeppoExpr> {
 }
 
 fn parse_print(pair: pest::iterators::Pair<Rule>) -> Result<SeppoExpr> {
-    let inner = pair.into_inner().next().unwrap();
-    match inner.as_rule() {
-        Rule::print_item => {
-            let expr_pair = inner.into_inner().next().unwrap();
-            let expr = parse_expression(expr_pair)?;
-            Ok(SeppoExpr::Print(Box::new(expr)))
-        }
-        _ => Err(anyhow!("Unexpected rule in print: {:?}", inner.as_rule())),
-    }
+    let mut inner = pair.into_inner();
+    
+    // Get the print command (seppo or 0xseppo)
+    let command = inner.next()
+        .ok_or_else(|| anyhow!("Expected print command"))?;
+    let format = match command.as_str() {
+        "0xseppo" => PrintFormat::Hex,
+        _ => PrintFormat::Decimal,
+    };
+
+    // Get the expression to print
+    let expr = inner.next()
+        .ok_or_else(|| anyhow!("Expected expression to print"))?
+        .into_inner()
+        .next()
+        .ok_or_else(|| anyhow!("Empty print expression"))?;
+    
+    let expr = parse_expression(expr)?;
+    Ok(SeppoExpr::Print(format, Box::new(expr)))
 }
 
 fn parse_assignment(pair: pest::iterators::Pair<Rule>) -> Result<SeppoExpr> {

@@ -41,7 +41,8 @@ block = { "{" ~ WHITESPACE* ~ statement* ~ WHITESPACE* ~ "}" }
 statement = { WHITESPACE* ~ (print_stmt | assignment | return_stmt | expression) ~ WHITESPACE* }
 return_stmt = { "return" ~ WHITESPACE* ~ expression }
 
-print_stmt = { "seppo" ~ WHITESPACE* ~ print_item }
+print_stmt = { print_command ~ WHITESPACE* ~ print_item }
+print_command = { "seppo" | "0xseppo" }
 print_item = { expression }
 
 assignment = { identifier ~ WHITESPACE* ~ "=" ~ WHITESPACE* ~ expression }

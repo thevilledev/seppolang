@@ -214,13 +214,16 @@ impl<'ctx> CodeGen<'ctx> {
                 self.builder.build_store(alloca, val)?;
                 Ok(val)
             }
-            SeppoExpr::Print(expr) => {
+            SeppoExpr::Print(format, expr) => {
                 let value = self.gen_expr(expr)?;
 
                 let printf = self.module.get_function("printf").unwrap();
-                let format_string = self
-                    .builder
-                    .build_global_string_ptr("%ld\n", "format_string")?;
+                
+                // Choose format based on the print type
+                let format_string = match format {
+                    PrintFormat::Hex => self.builder.build_global_string_ptr("0x%lx\n", "format_string")?,
+                    PrintFormat::Decimal => self.builder.build_global_string_ptr("%lu\n", "format_string")?,
+                };
 
                 self.builder.build_call(
                     printf,
@@ -285,7 +288,10 @@ impl<'ctx> CodeGen<'ctx> {
                 fs::remove_file(c_file)?;
 
                 // Store the object file path for later linking
-                self.c_object_files.push(o_file);
+                let o_file_abs = fs::canonicalize(&o_file)?;  // Get absolute path
+                self.c_object_files.push(o_file_abs);
+
+                println!("Added C object file: {:?}", o_file);
 
                 // Extract function declarations from the C code
                 let code = code.trim();

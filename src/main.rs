@@ -43,7 +43,7 @@ fn compile_file(input: &Path, output: &Path) -> Result<()> {
 
     // Link the object file
     let output_exe = output.with_extension(EXE_SUFFIX);
-    link_object_file(&obj_file, &output_exe)?;
+    link_object_file(&obj_file, &output_exe, &codegen)?;
 
     // Clean up intermediate files
     std::fs::remove_file(&obj_file)
@@ -53,72 +53,33 @@ fn compile_file(input: &Path, output: &Path) -> Result<()> {
     Ok(())
 }
 
-fn link_object_file(obj_file: &Path, output: &Path) -> Result<()> {
-    let status = if cfg!(target_os = "windows") {
-        Command::new("link")
-            .args(&[
-                "/NOLOGO",
-                "/DEFAULTLIB:libcmt",
-                "/SUBSYSTEM:CONSOLE",
-                &format!("/OUT:{}", output.display()),
-                &obj_file.display().to_string(),
-            ])
-            .status()
-    } else {
-        let mut cmd = Command::new("cc");
+fn link_object_file(obj_file: &Path, output: &Path, codegen: &codegen::CodeGen) -> Result<()> {
+    // Create a basic link command
+    let mut link_command = Command::new("cc");
+    link_command
+        .arg("-v")  // Add verbose output for debugging
+        .arg("-o")
+        .arg(output)
+        .arg(obj_file);
 
-        cmd.arg("-v");
-
-        if cfg!(target_os = "macos") {
-            // Add all library paths first
-            /*cmd.args(&[
-                "-L/opt/homebrew/lib",
-                "-L/opt/homebrew/opt/zstd/lib",
-                "-L/opt/homebrew/opt/llvm@18/lib",
-                "-L/opt/homebrew/Cellar/llvm@18/18.1.8/lib",
-            ]);*/
-
-            // Add LLVM library path from Homebrew
-            if let Ok(output) = Command::new("brew").args(["--prefix", "llvm"]).output() {
-                if let Ok(llvm_path) = String::from_utf8(output.stdout) {
-                    let llvm_path = llvm_path.trim();
-                    cmd.arg(format!("-L{}/lib", llvm_path));
-                }
-            }
-
-            // Add macOS SDK path - fix the isysroot format
-            if let Ok(output) = Command::new("xcrun").args(["--show-sdk-path"]).output() {
-                if let Ok(sdk_path) = String::from_utf8(output.stdout) {
-                    cmd.arg(format!("-isysroot{}", sdk_path.trim())); // Removed the = sign
-                }
-            }
-
-            // Add input and output files
-            cmd.args(&["-o", output.to_str().unwrap(), obj_file.to_str().unwrap()]);
-
-            // Add libraries in specific order
-            /*cmd.args(&[
-                "-lzstd",     // zstd first
-                "-lLLVM",     // then LLVM
-                "-lSystem",   // explicitly add System library
-            ]);*/
-        } else {
-            // Linux version
-            cmd.args(&[
-                "-o",
-                output.to_str().unwrap(),
-                obj_file.to_str().unwrap(),
-                //"-lz", "-lstdc++", "-lc", "-lm", "-lzstd", "-lLLVM"
-            ]);
-        }
-
-        println!("Running linker command: {:?}", cmd);
-        cmd.status()
+    // Add any C object files from ceppo blocks
+    // We need to pass the CodeGen instance here to access c_object_files
+    for c_obj in codegen.c_object_files() {
+        println!("Adding C object file: {:?}", c_obj);
+        link_command.arg(c_obj);
     }
-    .map_err(|e| anyhow!("Failed to execute linker: {}", e))?;
 
-    if !status.success() {
-        return Err(anyhow!("Linking failed with status: {}", status));
+    println!("Running linker command: {:?}", link_command);
+    let output = link_command.output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        eprintln!("Linking failed:");
+        eprintln!("stderr: {}", stderr);
+        eprintln!("stdout: {}", stdout);
+        eprintln!("Link command was: {:?}", link_command);
+        return Err(anyhow!("Linking failed: {}", stderr));
     }
 
     Ok(())

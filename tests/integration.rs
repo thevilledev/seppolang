@@ -60,13 +60,19 @@ fn compile_and_run(input: &str) -> Result<i64> {
 
         // Link with more verbose error handling
         let mut link_command = std::process::Command::new("cc");
-        link_command.arg("-o").arg(&exe_file).arg(&obj_file);
+        link_command
+            .arg("-v")  // Add verbose output
+            .arg("-o")
+            .arg(&exe_file)
+            .arg(&obj_file);
 
         // Add any C object files
         for c_obj in codegen.c_object_files() {
+            println!("Adding C object file: {:?}", c_obj);
             link_command.arg(c_obj);
         }
 
+        println!("Link command: {:?}", link_command);
         let output = link_command.output()?;
 
         if !output.status.success() {
@@ -75,6 +81,7 @@ fn compile_and_run(input: &str) -> Result<i64> {
             eprintln!("Linking failed:");
             eprintln!("stderr: {}", stderr);
             eprintln!("stdout: {}", stdout);
+            eprintln!("Link command was: {:?}", link_command);
             fs::remove_file(&obj_file)?;
             return Err(anyhow::anyhow!("Linking failed: {}", stderr));
         }
