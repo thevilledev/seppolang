@@ -259,16 +259,30 @@ impl<'ctx> CodeGen<'ctx> {
                 // Store the object file path for later linking
                 self.c_object_files.push(o_file);
                 
-                // Extract function name from the C code
-                // Looking for pattern: "long function_name("
+                // Extract function name and parameters from the C code
                 let code = code.trim();
                 if let Some(start) = code.find("long ") {
                     if let Some(end) = code[start..].find('(') {
                         let func_name = code[start + 5..start + end].trim();
                         
-                        // Declare the function to LLVM
+                        // Count parameters by looking at the content between parentheses
+                        let params_start = code[start..].find('(').unwrap() + start + 1;
+                        let params_end = code[params_start..].find(')').unwrap() + params_start;
+                        let params = code[params_start..params_end].trim();
+                        
+                        // Count number of 'long' parameters
+                        let param_count = if params.is_empty() {
+                            0
+                        } else {
+                            params.split(',').count()
+                        };
+                        
+                        // Create function type with correct number of parameters
                         let i64_type = self.context.i64_type();
-                        let fn_type = i64_type.fn_type(&[], false);
+                        let param_types = vec![i64_type.into(); param_count];
+                        let fn_type = i64_type.fn_type(&param_types, false);
+                        
+                        // Declare the function
                         let function = self.module.add_function(func_name, fn_type, None);
                         self.functions.insert(func_name.to_string(), function);
                     }
