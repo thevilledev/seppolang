@@ -1,4 +1,4 @@
-fn main() {
+fn seppo() {
     x = 42
     seppo x
     return x

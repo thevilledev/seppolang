@@ -51,7 +51,7 @@ pub fn parse_seppo(input: &str) -> Result<SeppoExpr> {
                         Rule::function => {
                             let func_expr = parse_function(item)?;
                             if let SeppoExpr::Function(name, ..) = &func_expr {
-                                if name == "main" {
+                                if name == "seppo" {
                                     has_main = true;
                                 }
                             }
@@ -74,7 +74,7 @@ pub fn parse_seppo(input: &str) -> Result<SeppoExpr> {
     }
 
     if !has_main {
-        return Err(anyhow!("No main function found"));
+        return Err(anyhow!("No seppo function found"));
     }
 
     Ok(SeppoExpr::Block(functions))

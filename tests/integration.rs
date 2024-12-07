@@ -109,9 +109,9 @@ fn compile_and_run(input: &str) -> Result<i64> {
 }
 
 #[test]
-fn test_main_return() -> Result<()> {
+fn test_seppo_return() -> Result<()> {
     let input = r#"
-        fn main() {
+        fn seppo() {
             return 42
         }
     "#;
@@ -120,9 +120,9 @@ fn test_main_return() -> Result<()> {
 }
 
 #[test]
-fn test_main_implicit_return() -> Result<()> {
+fn test_seppo_implicit_return() -> Result<()> {
     let input = r#"
-        fn main() {
+        fn seppo() {
             x = 42
         }
     "#;
@@ -133,7 +133,7 @@ fn test_main_implicit_return() -> Result<()> {
 #[test]
 fn test_variable_assignment() -> Result<()> {
     let input = r#"
-        fn main() {
+        fn seppo() {
             x = 42
             return x
         }
@@ -145,7 +145,7 @@ fn test_variable_assignment() -> Result<()> {
 #[test]
 fn test_print_statement() -> Result<()> {
     let input = r#"
-        fn main() {
+        fn seppo() {
             x = 42
             seppo x
             return 0
@@ -158,7 +158,7 @@ fn test_print_statement() -> Result<()> {
 #[test]
 fn test_arithmetic() -> Result<()> {
     let input = r#"
-        fn main() {
+        fn seppo() {
             x = 40
             y = 2
             return x + y
@@ -171,7 +171,7 @@ fn test_arithmetic() -> Result<()> {
 #[test]
 fn test_multiple_statements() -> Result<()> {
     let input = r#"
-        fn main() {
+        fn seppo() {
             x = 40
             y = 2
             z = x + y
@@ -184,10 +184,10 @@ fn test_multiple_statements() -> Result<()> {
 }
 
 #[test]
-#[should_panic(expected = "No main function found")]
-fn test_missing_main() {
+#[should_panic(expected = "No seppo function found")]
+fn test_missing_seppo() {
     let input = r#"
-        fn not_main() {
+        fn not_seppo() {
             return 42
         }
     "#;
@@ -198,7 +198,7 @@ fn test_missing_main() {
 #[should_panic(expected = "Undefined variable")]
 fn test_undefined_variable() {
     let input = r#"
-        fn main() {
+        fn seppo() {
             return x
         }
     "#;
@@ -214,7 +214,7 @@ fn test_inline_c_function() -> Result<()> {
             }
         }
 
-        fn main() {
+        fn seppo() {
             x = my_rand()
             seppo x
             return x
@@ -234,7 +234,7 @@ fn test_ceppo_with_whitespace() -> Result<()> {
             }
         }
 
-        fn main() {
+        fn seppo() {
             return meaning_of_life()
         }
     "#;
@@ -253,7 +253,7 @@ fn test_ceppo_complex_function() -> Result<()> {
             }
         }
 
-        fn main() {
+        fn seppo() {
             result = factorial(5)
             seppo result
             return result

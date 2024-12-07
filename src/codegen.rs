@@ -44,8 +44,28 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     pub fn compile(&mut self, expr: &SeppoExpr) -> Result<()> {
-        // Don't create a main function here anymore, just generate code for the expression
+        // Generate code for the expression first
         self.gen_expr(expr)?;
+
+        // Now create the main function that calls seppo
+        let i32_type = self.context.i32_type();
+        let main_type = i32_type.fn_type(&[], false);
+        let main_fn = self.module.add_function("main", main_type, None);
+        let entry = self.context.append_basic_block(main_fn, "entry");
+        self.builder.position_at_end(entry);
+
+        // Get the seppo function and call it
+        if let Some(seppo_fn) = self.module.get_function("seppo") {
+            let seppo_result = self.builder.build_call(seppo_fn, &[], "seppo_call")?;
+            let result = self.builder.build_int_truncate(
+                seppo_result.try_as_basic_value().left().unwrap().into_int_value(),
+                i32_type,
+                "result",
+            )?;
+            self.builder.build_return(Some(&result))?;
+        } else {
+            return Err(anyhow!("No seppo function found"));
+        }
 
         // Print LLVM IR for debugging
         println!("LLVM IR:\n{}", self.module.print_to_string().to_string());
@@ -111,7 +131,7 @@ impl<'ctx> CodeGen<'ctx> {
                     .get_terminator()
                     .is_some()
                 {
-                    // Always return 0 by default from main
+                    // Always return 0 by default from seppo
                     let return_value = i64_type.const_int(0, false);
                     self.builder.build_return(Some(&return_value))?;
                 }

@@ -14,11 +14,6 @@ fn compile_file(input: &Path, output: &Path) -> Result<()> {
     let content = std::fs::read_to_string(input)?;
     println!("Compiling {} to {}", input.display(), output.display());
 
-    // Set the linker before initializing LLVM
-    if cfg!(target_os = "macos") {
-        std::env::set_var("CC", "cc66");
-    }
-
     // Parse the input
     let expr = parser::parse_seppo(&content)?;
 
