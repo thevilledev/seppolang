@@ -6,11 +6,11 @@ use inkwell::module::Module;
 use inkwell::targets::{CodeModel, FileType, RelocMode, Target, TargetMachine};
 use inkwell::values::{FunctionValue, IntValue, PointerValue};
 use std::collections::HashMap;
-use std::path::Path;
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::env;
-use std::process;
 use std::fs;
+use std::path::Path;
+use std::process;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct CodeGen<'ctx> {
     context: &'ctx Context,
@@ -58,7 +58,11 @@ impl<'ctx> CodeGen<'ctx> {
         if let Some(seppo_fn) = self.module.get_function("seppo") {
             let seppo_result = self.builder.build_call(seppo_fn, &[], "seppo_call")?;
             let result = self.builder.build_int_truncate(
-                seppo_result.try_as_basic_value().left().unwrap().into_int_value(),
+                seppo_result
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap()
+                    .into_int_value(),
                 i32_type,
                 "result",
             )?;
@@ -152,13 +156,11 @@ impl<'ctx> CodeGen<'ctx> {
                         .map(|val| val.into())
                         .collect();
 
-                    let result = self
-                        .builder
-                        .build_call(
-                            self.module.get_function(name).unwrap_or(function),
-                            &compiled_args,
-                            "calltmp"
-                        )?;
+                    let result = self.builder.build_call(
+                        self.module.get_function(name).unwrap_or(function),
+                        &compiled_args,
+                        "calltmp",
+                    )?;
                     Ok(result.try_as_basic_value().left().unwrap().into_int_value())
                 } else {
                     Err(anyhow!("Undefined function: {}", name))
@@ -246,13 +248,13 @@ impl<'ctx> CodeGen<'ctx> {
                     .unwrap()
                     .as_nanos();
                 let pid = process::id();
-                let temp_dir = env::temp_dir()
-                    .join(format!("seppolang_extern_{}_{}", pid, timestamp));
+                let temp_dir =
+                    env::temp_dir().join(format!("seppolang_extern_{}_{}", pid, timestamp));
                 fs::create_dir_all(&temp_dir)?;
 
                 let c_file = temp_dir.join("inline.c");
                 let o_file = temp_dir.join("inline.o");
-                
+
                 // Write the C code to a file with proper headers
                 let c_code = format!(
                     "#include <stdint.h>\n\
@@ -264,7 +266,7 @@ impl<'ctx> CodeGen<'ctx> {
                     code.trim()
                 );
                 std::fs::write(&c_file, c_code)?;
-                
+
                 // Compile the C file
                 let output = std::process::Command::new("cc")
                     .arg("-c")
@@ -273,77 +275,76 @@ impl<'ctx> CodeGen<'ctx> {
                     .arg(&o_file)
                     .arg(&c_file)
                     .output()?;
-                    
+
                 if !output.status.success() {
                     let stderr = String::from_utf8_lossy(&output.stderr);
                     return Err(anyhow!("Failed to compile C code: {}", stderr));
                 }
-                
+
                 // Clean up C file
                 fs::remove_file(c_file)?;
-                
+
                 // Store the object file path for later linking
                 self.c_object_files.push(o_file);
-                
+
                 // Extract function declarations from the C code
                 let code = code.trim();
-                
+
                 // Find function declarations by looking for opening parenthesis
                 let mut pos = 0;
                 while let Some(paren_pos) = code[pos..].find('(') {
                     let start_pos = pos + paren_pos;
-                    
+
                     // Look backwards for the function name and return type
                     let before_paren = &code[..start_pos];
                     if let Some(name_start) = before_paren.rfind(|c: char| c.is_whitespace()) {
                         let func_name = before_paren[name_start + 1..].trim();
-                        
+
                         // Find the closing parenthesis
                         if let Some(params_end) = code[start_pos..].find(')') {
                             let params = code[start_pos + 1..start_pos + params_end].trim();
-                            
+
                             // Count parameters by counting commas + 1 (if not empty)
                             let param_count = if params.is_empty() {
                                 0
                             } else {
                                 params.split(',').count()
                             };
-                            
+
                             // Create function type - always use i64 for now
                             let i64_type = self.context.i64_type();
                             let param_types = vec![i64_type.into(); param_count];
                             let fn_type = i64_type.fn_type(&param_types, false);
-                            
+
                             // Declare the function with external linkage
                             let function = self.module.add_function(
                                 func_name,
                                 fn_type,
-                                Some(inkwell::module::Linkage::External)
+                                Some(inkwell::module::Linkage::External),
                             );
-                            
+
                             // Store in our functions map
                             self.functions.insert(func_name.to_string(), function);
                         }
                     }
-                    
+
                     pos = start_pos + 1;
                 }
-                
+
                 Ok(self.context.i64_type().const_int(0, false))
             }
             SeppoExpr::String(s) => {
                 // Create a global string constant
-                let str_ptr = self.builder
+                let str_ptr = self
+                    .builder
                     .build_global_string_ptr(s, "str_const")?
                     .as_pointer_value();
-                
+
                 // Convert pointer to i64 for passing to C functions
-                Ok(self.builder.build_ptr_to_int(
-                    str_ptr,
-                    self.context.i64_type(),
-                    "str_ptr"
-                )?)
-            },
+                Ok(self
+                    .builder
+                    .build_ptr_to_int(str_ptr, self.context.i64_type(), "str_ptr")?)
+            }
         }
     }
 

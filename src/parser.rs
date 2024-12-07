@@ -10,7 +10,7 @@ pub struct SeppoParser;
 pub fn parse_seppo(input: &str) -> Result<SeppoExpr> {
     println!("Input:\n{}", input);
     println!("Attempting to parse with Rule::program...");
-    
+
     // Debug parsing
     println!("\nTrying program rule with detailed debugging:");
     let program_result = SeppoParser::parse(Rule::program, input);
@@ -21,7 +21,7 @@ pub fn parse_seppo(input: &str) -> Result<SeppoExpr> {
                 println!("Rule: {:?}", pair.as_rule());
                 println!("Text: {}", pair.as_str());
                 println!("Span: {:?}", pair.as_span());
-                
+
                 for inner in pair.into_inner() {
                     println!("\n  Inner pair:");
                     println!("  Rule: {:?}", inner.as_rule());
@@ -37,9 +37,9 @@ pub fn parse_seppo(input: &str) -> Result<SeppoExpr> {
             println!("Line/Col: {:?}", e.line_col);
         }
     }
-    
+
     let pairs = program_result?;
-    
+
     let mut functions = Vec::new();
     let mut has_main = false;
 
@@ -172,7 +172,7 @@ fn parse_expression(pair: pest::iterators::Pair<Rule>) -> Result<SeppoExpr> {
         Rule::string_literal => {
             // Remove the quotes and handle escapes
             let str_content = pair.as_str();
-            let str_without_quotes = &str_content[1..str_content.len()-1];
+            let str_without_quotes = &str_content[1..str_content.len() - 1];
             Ok(SeppoExpr::String(str_without_quotes.to_string()))
         }
         Rule::variable => Ok(SeppoExpr::Variable(pair.as_str().to_string())),

@@ -1,10 +1,10 @@
 use anyhow::Result;
 use inkwell::context::Context;
 use seppolang::{parse_seppo, CodeGen};
-use std::fs;
 use std::env;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::fs;
 use std::process;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 fn compile_and_run(input: &str) -> Result<i64> {
     // Initialize LLVM targets
@@ -16,7 +16,7 @@ fn compile_and_run(input: &str) -> Result<i64> {
         info: true,
         machine_code: true,
     });
-    
+
     // Initialize native target
     inkwell::targets::Target::initialize_native(&inkwell::targets::InitializationConfig::default())
         .map_err(|e| anyhow::anyhow!("Failed to initialize native target: {}", e))?;
@@ -30,10 +30,9 @@ fn compile_and_run(input: &str) -> Result<i64> {
         .unwrap()
         .as_nanos();
     let pid = process::id();
-    let temp_dir = env::temp_dir()
-        .join(format!("seppolang_test_{}_{}", pid, timestamp));
+    let temp_dir = env::temp_dir().join(format!("seppolang_test_{}_{}", pid, timestamp));
     fs::create_dir_all(&temp_dir)?;
-    
+
     let obj_file = temp_dir.join("test.o");
     let exe_file = temp_dir.join("test");
 
@@ -61,16 +60,13 @@ fn compile_and_run(input: &str) -> Result<i64> {
 
         // Link with more verbose error handling
         let mut link_command = std::process::Command::new("cc");
-        link_command
-            .arg("-o")
-            .arg(&exe_file)
-            .arg(&obj_file);
-        
+        link_command.arg("-o").arg(&exe_file).arg(&obj_file);
+
         // Add any C object files
         for c_obj in codegen.c_object_files() {
             link_command.arg(c_obj);
         }
-        
+
         let output = link_command.output()?;
 
         if !output.status.success() {
@@ -94,12 +90,20 @@ fn compile_and_run(input: &str) -> Result<i64> {
             .map_err(|e| anyhow::anyhow!("Failed to execute binary: {}", e))?;
 
         // Get the exit code, ensuring it's properly captured
-        let exit_code = output.status.code()
+        let exit_code = output
+            .status
+            .code()
             .ok_or_else(|| anyhow::anyhow!("Process terminated by signal"))?;
 
         // Print debug information
-        println!("Program stdout: {}", String::from_utf8_lossy(&output.stdout));
-        println!("Program stderr: {}", String::from_utf8_lossy(&output.stderr));
+        println!(
+            "Program stdout: {}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+        println!(
+            "Program stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
         println!("Exit code: {}", exit_code);
 
         Ok(exit_code as i64)
