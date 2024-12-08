@@ -1,33 +1,30 @@
-fn main() {
+fn seppo() {
     x = 42
-    // postfix seppo increments
-    x seppo
-
-    // prefix seppo decrements
     seppo x
 
     // seppo as a conditional block (if-else)
+    y = 0
     seppo x > 40 {
-        y = 10 seppo 20
+        y = 10 - 20
     }
     perkele {
-        y = 5 seppo 10
+        y = 5 - 10
     }
-
-    // you can chain them for extra confusion
-    seppo x seppo seppo
+    seppo y
 
     // nested conditional blocks
+    z = 0
     seppo y < 30 {
         z = 100
-        seppo z == 100 {
-            z seppo
+        seppo z != 100 {
+            seppo z
         }
         perkele {
-            seppo z
+            z=3
         }
     }
     perkele {
         z = 0
     }
+    seppo z
 }

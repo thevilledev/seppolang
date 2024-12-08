@@ -4,7 +4,7 @@ use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::targets::{CodeModel, FileType, RelocMode, Target, TargetMachine};
-use inkwell::values::{FunctionValue, IntValue, PointerValue};
+use inkwell::values::{BasicValue, FunctionValue, IntValue, PointerValue};
 use std::collections::HashMap;
 use std::env;
 use std::fs;
@@ -296,7 +296,7 @@ impl<'ctx> CodeGen<'ctx> {
                         .build_global_string_ptr("0x%lx\n", "format_string")?,
                     PrintFormat::Decimal => self
                         .builder
-                        .build_global_string_ptr("%lu\n", "format_string")?,
+                        .build_global_string_ptr("%ld\n", "format_string")?,
                 };
 
                 self.builder.build_call(
@@ -430,17 +430,13 @@ impl<'ctx> CodeGen<'ctx> {
                 true_block,
                 false_block,
             } => {
-                let cond_value = self.gen_expr(condition)?;
-
                 // Get current function
                 let current_fn = self
                     .current_function
                     .ok_or_else(|| anyhow!("Conditional block outside of function"))?;
 
-                // Create basic blocks
-                let then_bb = self.context.append_basic_block(current_fn, "then");
-                let else_bb = self.context.append_basic_block(current_fn, "else");
-                let merge_bb = self.context.append_basic_block(current_fn, "merge");
+                // Generate condition code
+                let cond_value = self.gen_expr(condition)?;
 
                 // Convert condition to boolean (i1)
                 let zero = self.context.i64_type().const_int(0, false);
@@ -451,14 +447,29 @@ impl<'ctx> CodeGen<'ctx> {
                     "cond",
                 )?;
 
-                // Create conditional branch with i1 value
+                // Create basic blocks
+                let then_bb = self.context.append_basic_block(current_fn, "then");
+                let else_bb = self.context.append_basic_block(current_fn, "else");
+                let merge_bb = self.context.append_basic_block(current_fn, "merge");
+
+                // Create conditional branch
                 self.builder
                     .build_conditional_branch(cond_bool, then_bb, else_bb)?;
+
+                // Save current variables state
+                let entry_vars = self.variables.clone();
 
                 // Generate then block
                 self.builder.position_at_end(then_bb);
                 let then_val = self.gen_expr(true_block)?;
-                self.builder.build_unconditional_branch(merge_bb)?;
+                let then_block = self.builder.get_insert_block().unwrap();
+                let then_vars = self.variables.clone();
+                if !then_block.get_terminator().is_some() {
+                    self.builder.build_unconditional_branch(merge_bb)?;
+                }
+
+                // Restore entry variables for else block
+                self.variables = entry_vars.clone();
 
                 // Generate else block
                 self.builder.position_at_end(else_bb);
@@ -467,16 +478,106 @@ impl<'ctx> CodeGen<'ctx> {
                 } else {
                     self.context.i64_type().const_int(0, false)
                 };
-                self.builder.build_unconditional_branch(merge_bb)?;
+                let else_block = self.builder.get_insert_block().unwrap();
+                let else_vars = self.variables.clone();
+                if !else_block.get_terminator().is_some() {
+                    self.builder.build_unconditional_branch(merge_bb)?;
+                }
 
                 // Generate merge block
                 self.builder.position_at_end(merge_bb);
+
+                // Create phi nodes for modified variables
+                let mut merged_vars = HashMap::new();
+                let all_vars: std::collections::HashSet<_> = then_vars
+                    .keys()
+                    .chain(else_vars.keys())
+                    .filter(|k| {
+                        then_vars.get(*k) != entry_vars.get(*k)
+                            || else_vars.get(*k) != entry_vars.get(*k)
+                    })
+                    .collect();
+
+                for var_name in all_vars {
+                    let var_type = self.context.i64_type();
+                    let phi = self
+                        .builder
+                        .build_phi(var_type, &format!("{}_phi", var_name))?;
+                    let mut incoming = Vec::new();
+
+                    // Load values from both branches if they exist and reach here
+                    if let Some(&then_var) = then_vars.get(var_name) {
+                        if then_block.get_terminator().unwrap().get_opcode()
+                            != inkwell::values::InstructionOpcode::Return
+                        {
+                            let then_val = self.builder.build_load(
+                                var_type,
+                                then_var,
+                                &format!("{}_then", var_name),
+                            )?;
+                            incoming.push((then_val, then_block));
+                        }
+                    }
+
+                    if let Some(&else_var) = else_vars.get(var_name) {
+                        if else_block.get_terminator().unwrap().get_opcode()
+                            != inkwell::values::InstructionOpcode::Return
+                        {
+                            let else_val = self.builder.build_load(
+                                var_type,
+                                else_var,
+                                &format!("{}_else", var_name),
+                            )?;
+                            incoming.push((else_val, else_block));
+                        }
+                    }
+
+                    if !incoming.is_empty() {
+                        let incoming_refs: Vec<_> = incoming
+                            .iter()
+                            .map(|(val, block)| (&*val as &dyn BasicValue, *block))
+                            .collect();
+                        phi.add_incoming(&incoming_refs);
+
+                        // Store phi result in the original variable
+                        if let Some(&var) = entry_vars.get(var_name) {
+                            self.builder.build_store(var, phi.as_basic_value())?;
+                            merged_vars.insert(var_name.clone(), var);
+                        }
+                    }
+                }
+
+                // Update variables with merged values
+                self.variables = entry_vars;
+                self.variables.extend(merged_vars);
+
+                // Create phi node for the block result
                 let phi = self
                     .builder
                     .build_phi(self.context.i64_type(), "merge_val")?;
-                phi.add_incoming(&[(&then_val, then_bb), (&else_val, else_bb)]);
+                let mut incoming = Vec::new();
 
-                Ok(phi.as_basic_value().into_int_value())
+                if then_block.get_terminator().unwrap().get_opcode()
+                    != inkwell::values::InstructionOpcode::Return
+                {
+                    incoming.push((then_val, then_block));
+                }
+                if else_block.get_terminator().unwrap().get_opcode()
+                    != inkwell::values::InstructionOpcode::Return
+                {
+                    incoming.push((else_val, else_block));
+                }
+
+                if !incoming.is_empty() {
+                    let incoming_refs: Vec<_> = incoming
+                        .iter()
+                        .map(|(val, block)| (&*val as &dyn BasicValue, *block))
+                        .collect();
+                    phi.add_incoming(&incoming_refs);
+                    Ok(phi.as_basic_value().into_int_value())
+                } else {
+                    Ok(self.context.i64_type().const_int(0, false))
+                }
             }
         }
     }
