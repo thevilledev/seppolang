@@ -2,23 +2,14 @@
 
 A minimalist programming language where everything is _seppo_.
 
-## Overview
-
-SeppoLang is an experimental programming language that uses the keyword 'seppo' for various operations. It features:
-
-- Print statements using `seppo`
-- Conditional blocks with `seppo` and `perkele` (else)
-- Seamless C integration with `ceppo` blocks
+See official site for more information: https://seppolang.dev
 
 ## Building
 
 Requires:
+
 - Rust toolchain
-- LLVM
-
-## Why?
-
-I wanted to learn more about compilers and programming languages. More specifically, LLVM and Rust.
+- LLVM 18
 
 ## License
 
