@@ -2,6 +2,13 @@
 name = "seppolang"
 version = "0.1.0"
 edition = "2021"
+authors = ["Ville Vesilehto <ville@vesilehto.fi>"]
+description = "A Seppo-inspired programming language"
+repository = "https://github.com/thevilledev/seppolang"
+license = "MIT"
+keywords = ["language", "compiler", "llvm", "seppo"]
+categories = ["compilers", "development-tools"]
+readme = "README.md"
 
 [dependencies]
 inkwell = {version="0.5.0", features = ["llvm18-0"]}
