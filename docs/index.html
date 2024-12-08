@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SeppoLang - A Seppo inspired Programming Language</title>
+    <style>
+        body {
+            font-family: "Courier New", Courier, monospace;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0 20px;
+            background: #fff;
+            color: #000;
+        }
+        pre {
+            background: #f0f0f0;
+            padding: 10px;
+            border: 1px solid #000;
+            overflow-x: auto;
+        }
+        hr {
+            border: 1px solid #000;
+        }
+        h1, h2 {
+            border-bottom: 2px solid #000;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>What is SeppoLang?</h2>
+    <p>
+        SeppoLang is a minimalist programming language inspired by Seppo's around the world.
+        It uses the keyword 'seppo' for various operations, making it uniquely Finnish and
+        deliberately confusing.
+    </p>
+
+    <h2>Basic Syntax</h2>
+    <p>
+        The keyword 'seppo' can be used to print values when used with an expression:
+    </p>
+    <pre>
+fn seppo() {
+    x = 42
+    seppo x  // prints 42
+
+    // seppo as a conditional (if-else)
+    seppo x > 40 {
+        y = 10
+        seppo y  // prints 10
+    }
+    perkele {
+        y = 5
+        seppo y  // prints 5
+    }
+}</pre>
+
+    <h2>Advanced Features</h2>
+    <h3>Inline C</h3>
+    <p>
+        You can write inline C code using the special ceppo block. You can define C functions outside main and call them from SeppoLang:
+    </p>
+    <pre>
+// Define C functions outside seppo()
+ceppo {
+    int add_numbers(int a, int b) {
+        return a + b;
+    }
+}
+
+fn seppo() {
+    // Call C function from SeppoLang
+    x = 10
+    y = 20
+    result = add_numbers(x, y)
+    seppo result // prints 30
+}</pre>
+
+    <h2>Key Features</h2>
+    <ul>
+        <li>'seppo' works as a print statement</li>
+        <li>'seppo' can be used for conditional statements</li>
+        <li>'perkele' serves as the 'else' keyword</li>
+        <li>Seamless C integration with 'ceppo' blocks</li>
+    </ul>
+
+    <h2>Why SeppoLang?</h2>
+    <p>
+        I wanted to learn more about LLVM and Rust.
+    </p>
+
+    <p style="text-align: center; font-size: 12px;">&copy; 2024 SeppoLang | <a href="https://github.com/thevilledev/seppolang">GitHub Repository</a><br>Best viewed with Netscape Navigator
+    </p>
+</body>
+</html> 
